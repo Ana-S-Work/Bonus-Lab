@@ -8,21 +8,27 @@
 #'          It is particularly useful in cases of multicollinearity or when p > n (more predictors than observations).
 #' @examples
 #' model <- ridgereg(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris, lambda = 0.1)
-#' model$summary()
+#' print(model)
+#' predict(model, newdata = iris)
+#' coef(model)
 #' @export
 ridgereg <- function(formula, data, lambda) {
   
-  # Design matrix X (independent variables) and response vector y (dependent variable)
+  # Create model matrix X (predictors) and response vector y
   X <- model.matrix(formula, data)
   y <- data[[all.vars(formula)[1]]]
   
-  # Normalize the predictor matrix X (excluding intercept if present)
-  X_norm <- scale(X, center = TRUE, scale = TRUE)
+  # Separate the intercept and predictors for normalization
+  intercept <- X[, 1]  # Store intercept
+  X_predictors <- X[, -1]  # Remove intercept for scaling
   
-  # Add λ to the diagonal of X'X to create the ridge regression solution
+  # Scale the predictor columns (excluding intercept)
+  X_norm <- scale(X_predictors)
+  X_norm <- cbind(intercept, X_norm)  # Add the intercept column back
+  
+  # Add λ to the diagonal of X'X (no penalty on the intercept)
   lambda_I <- diag(lambda, ncol(X_norm))
-  # Ensuring intercept term is not penalized by setting first element of lambda_I to zero
-  lambda_I[1, 1] <- 0
+  lambda_I[1, 1] <- 0  # Intercept column not penalized
   
   # Calculate ridge regression coefficients: βˆridge = (X'X + λI)^(-1) X'y
   beta_ridge <- solve(t(X_norm) %*% X_norm + lambda_I) %*% t(X_norm) %*% y
@@ -51,7 +57,7 @@ print.ridgereg <- function(object) {
   
   # Print the coefficients
   cat("Coefficients:\n")
-  coef_names <- names(object$coefficients)
+  coef_names <- colnames(model.matrix(object$formula, object$data))
   coefs <- as.vector(object$coefficients)
   names(coefs) <- coef_names
   print(coefs)
@@ -76,7 +82,7 @@ predict.ridgereg <- function(object, newdata = NULL) {
 #' @export
 coef.ridgereg <- function(object) {
   # Return the coefficients as a named vector
-  coef_names <- names(object$coefficients)
+  coef_names <- colnames(model.matrix(object$formula, object$data))
   coefs <- as.vector(object$coefficients)
   names(coefs) <- coef_names
   return(coefs)
