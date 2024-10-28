@@ -13,42 +13,50 @@
 #' coef(model)
 #' @export
 ridgereg <- function(formula, data, lambda) {
-  
-  # Create model matrix X (predictors) and response vector y
-  X <- model.matrix(formula, data)
+  # Extract response and predictor variables
   y <- data[[all.vars(formula)[1]]]
+  predictor_formula <- reformulate(attr(terms(formula), "term.labels"))
+  X <- model.matrix(predictor_formula, data)
   
-  # Separate the intercept and predictors for normalization
-  intercept <- X[, 1]  # Store intercept
-  X_predictors <- X[, -1]  # Remove intercept for scaling
+  # Separate intercept and predictors for normalization
+  intercept <- X[, 1]
+  X_predictors <- X[, -1]
   
-  # Scale the predictor columns (excluding intercept)
+  # Scale predictors, excluding intercept
   X_norm <- scale(X_predictors)
-  X_norm <- cbind(intercept, X_norm)  # Add the intercept column back
+  X_norm <- cbind(1, X_norm)  # Add intercept column back
   
-  # Add λ to the diagonal of X'X (no penalty on the intercept)
+  # Store scaling parameters to use later in predict method
+  scaling_params <- list(
+    center = attr(X_norm, "scaled:center"),
+    scale = attr(X_norm, "scaled:scale")
+  )
+  
+  # Regularization matrix, excluding intercept
   lambda_I <- diag(lambda, ncol(X_norm))
-  lambda_I[1, 1] <- 0  # Intercept column not penalized
+  lambda_I[1, 1] <- 0
   
-  # Calculate ridge regression coefficients: βˆridge = (X'X + λI)^(-1) X'y
+  # Ridge regression coefficients
   beta_ridge <- solve(t(X_norm) %*% X_norm + lambda_I) %*% t(X_norm) %*% y
   
-  # Calculate fitted values and residuals
+  # Fitted values and residuals
   fitted_values <- X_norm %*% beta_ridge
   residuals <- y - fitted_values
   
-  # Create the ridgereg object as an S3 list
+  # Return model object
   model <- list(
     formula = formula,
     data = data,
     lambda = lambda,
     coefficients = beta_ridge,
     fitted_values = fitted_values,
-    residuals = residuals
+    residuals = residuals,
+    scaling_params = scaling_params
   )
   class(model) <- "ridgereg"
   return(model)
 }
+
 
 #' @export
 print.ridgereg <- function(object) {
@@ -56,34 +64,61 @@ print.ridgereg <- function(object) {
   cat("ridgereg(formula = ", deparse(object$formula), ", data = ", deparse(substitute(object$data)), ", lambda = ", object$lambda, ")\n\n")
   
   # Print the coefficients
-  cat("Coefficients:\n")
-  coef_names <- colnames(model.matrix(object$formula, object$data))
+  coef_names <- colnames(model.matrix(reformulate(attr(terms(object$formula), "term.labels")), object$data))
   coefs <- as.vector(object$coefficients)
-  names(coefs) <- coef_names
+  
+  # Adjust names to include "(Intercept)" if there is an intercept
+  if (length(coefs) == length(coef_names) + 1) {
+    names(coefs) <- c("(Intercept)", coef_names)
+  } else {
+    names(coefs) <- coef_names
+  }
+  
   print(coefs)
 }
-
 #' @export
 predict.ridgereg <- function(object, newdata = NULL) {
-  # If newdata is provided, normalize it based on the training data's scaling
+  predictor_formula <- reformulate(attr(terms(object$formula), "term.labels"))
+  
+  # Generate model matrix for new data
   if (!is.null(newdata)) {
-    X_new <- model.matrix(object$formula, newdata)
-    X_new_norm <- scale(X_new, center = attr(scale(object$data, center = TRUE, scale = TRUE), "scaled:center"), 
-                        scale = attr(scale(object$data, center = TRUE, scale = TRUE), "scaled:scale"))
+    X_new <- model.matrix(predictor_formula, newdata)
   } else {
-    # Use original data
-    X_new_norm <- scale(model.matrix(object$formula, object$data), center = TRUE, scale = TRUE)
+    X_new <- model.matrix(predictor_formula, object$data)
   }
+  
+  # Retrieve saved scaling parameters
+  center <- object$scaling_params$center
+  scale <- object$scaling_params$scale
+  
+  # Apply scaling to new data based on training data parameters
+  X_new_norm <- scale(X_new, center = center, scale = scale)
+  
+  # Add intercept column to ensure dimensions match
+  X_new_norm <- cbind(1, X_new_norm)
+  
+  # Print dimensions for debugging
+  print(paste("Dimensions of X_new_norm:", dim(X_new_norm)))
+  print(paste("Length of object$coefficients:", length(object$coefficients)))
   
   # Return the predicted values
   return(X_new_norm %*% object$coefficients)
 }
 
+
 #' @export
 coef.ridgereg <- function(object) {
   # Return the coefficients as a named vector
-  coef_names <- colnames(model.matrix(object$formula, object$data))
+  coef_names <- colnames(model.matrix(reformulate(attr(terms(object$formula), "term.labels")), object$data))
   coefs <- as.vector(object$coefficients)
-  names(coefs) <- coef_names
+  
+  # Adjust names to include "(Intercept)" if there is an intercept
+  if (length(coefs) == length(coef_names) + 1) {
+    names(coefs) <- c("(Intercept)", coef_names)
+  } else {
+    names(coefs) <- coef_names
+  }
+  
   return(coefs)
 }
+
