@@ -3,4 +3,6 @@
 S3method(coef,ridgereg)
 S3method(predict,ridgereg)
 S3method(print,ridgereg)
+export(LinRegRC)
 export(ridgereg)
+import(ggplot2)
