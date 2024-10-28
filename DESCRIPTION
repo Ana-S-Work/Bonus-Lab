@@ -2,18 +2,23 @@ Package: BonusLab
 Type: Package
 Title: This package will be solving problems involving regression
 Version: 1.0
-Date: 2024-10-28
-Author: c(person("Sofia", email="jknsfjs"), person("Ana", email="hbsdjh"))
-Maintainer: Who to complain to <sofia16@live.se>
-Description: More about what it does (maybe more than one line)
+Author: c(person("Ana", "Stanojcic", email = "anastanojcic03@gmail.com"),
+          person("Sofia", "Danielsons", email = "sofia16@live.se"))
+Maintainer: Name Surname <sofia16@live.se>
+Description: This package provides functions to solve problems involving linear and ridge regression. 
+             It includes data visualization capabilities for analyzing airport delays.
 License: MIT + file LICENSE
-RoxygenNote: 7.3.2
 Encoding: UTF-8
+RoxygenNote: 7.3.2
 Suggests: 
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Imports:
-    ggplot2
+    ggplot2,
+    dplyr,
+    MASS,
+    nycflights13
 VignetteBuilder: knitr
+LazyData: true

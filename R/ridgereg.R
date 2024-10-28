@@ -45,21 +45,39 @@ ridgereg <- function(formula, data, lambda) {
 }
 
 #' @export
-summary.ridgereg <- function(object) {
-  cat("Ridge Regression Model\n")
-  cat("Formula:", deparse(object$formula), "\n")
-  cat("Lambda:", object$lambda, "\n\n")
+print.ridgereg <- function(object) {
+  cat("Call:\n")
+  cat("ridgereg(formula = ", deparse(object$formula), ", data = ", deparse(substitute(object$data)), ", lambda = ", object$lambda, ")\n\n")
   
-  # Print coefficient estimates
+  # Print the coefficients
   cat("Coefficients:\n")
-  print(object$coefficients)
+  coef_names <- names(object$coefficients)
+  coefs <- as.vector(object$coefficients)
+  names(coefs) <- coef_names
+  print(coefs)
 }
 
 #' @export
-predict.ridgereg <- function(object, newdata) {
-  # Ensure the new data is normalized in the same way as the original data
-  X_new <- model.matrix(object$formula, newdata)
-  X_new_norm <- scale(X_new, center = TRUE, scale = TRUE)
+predict.ridgereg <- function(object, newdata = NULL) {
+  # If newdata is provided, normalize it based on the training data's scaling
+  if (!is.null(newdata)) {
+    X_new <- model.matrix(object$formula, newdata)
+    X_new_norm <- scale(X_new, center = attr(scale(object$data, center = TRUE, scale = TRUE), "scaled:center"), 
+                        scale = attr(scale(object$data, center = TRUE, scale = TRUE), "scaled:scale"))
+  } else {
+    # Use original data
+    X_new_norm <- scale(model.matrix(object$formula, object$data), center = TRUE, scale = TRUE)
+  }
+  
+  # Return the predicted values
   return(X_new_norm %*% object$coefficients)
 }
 
+#' @export
+coef.ridgereg <- function(object) {
+  # Return the coefficients as a named vector
+  coef_names <- names(object$coefficients)
+  coefs <- as.vector(object$coefficients)
+  names(coefs) <- coef_names
+  return(coefs)
+}
