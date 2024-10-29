@@ -2,35 +2,37 @@
 \alias{BonusLab-package}
 \alias{BonusLab}
 \docType{package}
-\title{
-\packageTitle{BonusLab}
-}
+\title{Tools for Ridge Regression and Data Visualization}
+
 \description{
-\packageDescription{BonusLab}
+The `BonusLab` package provides tools to perform ridge regression and visualizing data.
 }
+
 \details{
-
-The DESCRIPTION file:
-\packageDESCRIPTION{BonusLab}
-\packageIndices{BonusLab}
-~~ An overview of how to use the package, including the most important ~~
-~~ functions ~~
+This package has functions like `ridgereg` for ridge regression and `visualize_airport_delays` to plot mean flight delays by airport.
 }
+
 \author{
-\packageAuthor{BonusLab}
+Package Author: Ana Stanojcic
+Maintainer: Ana <anastanojcic03@gmail.com>
+}
 
-Maintainer: \packageMaintainer{BonusLab}
-}
 \references{
-~~ Literature or other references for background information ~~
+For additional information see Chapter 3.4.1 in "An Introduction to Statistical Learning" by James, Witten, Hastie, and Tibshirani.
 }
-~~ Optionally other standard keywords, one per line, from file KEYWORDS ~~
-~~ in the R documentation directory ~~
-\keyword{ package }
+
 \seealso{
-~~ Optional links to other man pages, e.g. ~~
-~~ \code{\link[<pkg>:<pkg>-package]{<pkg>}} ~~
+\code{\link[MASS:lm.ridge]{lm.ridge}} in the MASS package for a comparable ridge regression function.
 }
+
 \examples{
-~~ simple examples of the most important functions ~~
+# Example of ridge regression with `ridgereg`
+data(iris)
+model <- ridgereg(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris, lambda = 0.1)
+print(model)
+
+# Example of visualizing airport delays
+visualize_airport_delays()
 }
+
+\keyword{package}
