@@ -2,7 +2,6 @@ library(dplyr)
 library(ggplot2)
 library(nycflights13)
 
-
 #' @title Visualize Airport Delays
 #' @description Creates a scatter plot of mean delays by airport location.
 #' @details This function visualizes mean departure delays for flights to different airports 
@@ -11,19 +10,15 @@ library(nycflights13)
 #' @import ggplot2 dplyr nycflights13
 #' @export
 visualize_airport_delays <- function() {
-  # Ensure the necessary datasets from nycflights13 are available
-  data("flights")
-  data("airports")
-  
   # Calculate the average delay for each destination airport
-  avg_delays <- flights %>%
+  avg_delays <- nycflights13::flights %>%
     filter(!is.na(dep_delay)) %>%               # Exclude rows with NA delays
     group_by(dest) %>%                          # Group by destination airport code
     summarise(mean_delay = mean(dep_delay, na.rm = TRUE))  # Calculate mean delay
   
   # Join the delays with airport information
   airport_delays <- avg_delays %>%
-    inner_join(airports, by = c("dest" = "faa")) %>%  # Join on destination airport code
+    inner_join(nycflights13::airports, by = c("dest" = "faa")) %>%  # Join on destination airport code
     filter(!is.na(lon), !is.na(lat))                 # Filter out rows without location data
   
   # Plot the data
@@ -43,6 +38,3 @@ visualize_airport_delays <- function() {
       legend.position = "right"
     )
 }
-
-# Run the function to display the plot
-visualize_airport_delays()
