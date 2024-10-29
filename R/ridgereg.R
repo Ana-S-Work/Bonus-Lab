@@ -44,12 +44,13 @@ ridgereg <- function(formula, data, lambda) {
 }
 
 #' @export
-print.ridgereg <- function(object) {
+print.ridgereg <- function(x, ...) {
   cat("Call:\n")
-  cat("ridgereg(formula = ", deparse(object$formula), ", data = ", deparse(substitute(object$data)), ", lambda = ", object$lambda, ")\n\n")
+  cat("ridgereg(formula = ", deparse(x$formula), ", data = ", deparse(substitute(x$data)), ", lambda = ", x$lambda, ")\n\n")
   cat("Coefficients:\n")
-  print(as.vector(object$coefficients))
+  print(as.vector(x$coefficients))
 }
+
 
 #' @export
 predict.ridgereg <- function(object, newdata = NULL) {

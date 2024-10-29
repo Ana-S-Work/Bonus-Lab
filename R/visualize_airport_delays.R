@@ -2,6 +2,8 @@ library(dplyr)
 library(ggplot2)
 library(nycflights13)
 
+
+#' @export
 visualize_airport_delays <- function() {
   # Ensure the necessary datasets from nycflights13 are available
   data("flights")
