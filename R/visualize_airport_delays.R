@@ -3,6 +3,12 @@ library(ggplot2)
 library(nycflights13)
 
 
+#' @title Visualize Airport Delays
+#' @description Creates a scatter plot of mean delays by airport location.
+#' @details This function visualizes mean departure delays for flights to different airports 
+#'          by plotting each airport's longitude and latitude, with the size and color of the points 
+#'          representing the average delay.
+#' @import ggplot2 dplyr nycflights13
 #' @export
 visualize_airport_delays <- function() {
   # Ensure the necessary datasets from nycflights13 are available
