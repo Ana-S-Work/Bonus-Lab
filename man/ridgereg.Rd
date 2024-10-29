@@ -2,7 +2,7 @@
 % Please edit documentation in R/ridgereg.R
 \name{ridgereg}
 \alias{ridgereg}
-\title{Ridge Regression}
+\title{Ridge Regression with Least Squares}
 \usage{
 ridgereg(formula, data, lambda)
 }
@@ -14,16 +14,14 @@ ridgereg(formula, data, lambda)
 \item{lambda}{A numeric value specifying the ridge penalty parameter λ.}
 }
 \value{
-A list of class `ridgereg` containing ridge regression results.
+An object of class `ridgereg` containing ridge regression results.
 }
 \description{
-Perform ridge regression with L2 regularization.
-}
-\details{
-This function fits a ridge regression model, regularizing the coefficients to prevent overfitting.
-         It is particularly useful in cases of multicollinearity or when p > n (more predictors than observations).
+Perform ridge regression using least squares, following the formula instructions.
 }
 \examples{
 model <- ridgereg(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris, lambda = 0.1)
-model$summary()
+print(model)
+predict(model, newdata = iris)
+coef(model)
 }
