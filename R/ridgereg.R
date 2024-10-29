@@ -16,32 +16,34 @@ ridgereg <- function(formula, data, lambda) {
   # Extract response and predictor variables
   y <- data[[all.vars(formula)[1]]]
   predictor_formula <- reformulate(attr(terms(formula), "term.labels"))
-  X <- model.matrix(predictor_formula, data)
+  X <- model.matrix(predictor_formula, data)[, -1]  # Exclude intercept
   
-  # Separate intercept and predictors for normalization
-  intercept <- X[, 1]
-  X_predictors <- X[, -1]
-  
-  # Scale predictors, excluding intercept
-  X_norm <- scale(X_predictors)
-  X_norm <- cbind(1, X_norm)  # Add intercept column back
-  
-  # Store scaling parameters to use later in predict method
+  # Scale only predictor columns
+  X_scaled <- scale(X)
   scaling_params <- list(
-    center = attr(X_norm, "scaled:center"),
-    scale = attr(X_norm, "scaled:scale")
+    center = attr(X_scaled, "scaled:center"),
+    scale = attr(X_scaled, "scaled:scale")
   )
   
-  # Regularization matrix, excluding intercept
+  # Add intercept column manually after scaling
+  X_norm <- cbind(1, X_scaled)
+  
+  # Regularization matrix (no penalty on intercept)
   lambda_I <- diag(lambda, ncol(X_norm))
   lambda_I[1, 1] <- 0
   
-  # Ridge regression coefficients
+  # Calculate ridge regression coefficients
   beta_ridge <- solve(t(X_norm) %*% X_norm + lambda_I) %*% t(X_norm) %*% y
   
   # Fitted values and residuals
   fitted_values <- X_norm %*% beta_ridge
   residuals <- y - fitted_values
+  
+  # Print diagnostics for scaling parameters
+  cat("Scaling Parameters - Center:\n")
+  print(scaling_params$center)
+  cat("Scaling Parameters - Scale:\n")
+  print(scaling_params$scale)
   
   # Return model object
   model <- list(
@@ -56,6 +58,13 @@ ridgereg <- function(formula, data, lambda) {
   class(model) <- "ridgereg"
   return(model)
 }
+
+
+
+
+
+
+
 
 
 #' @export
@@ -76,34 +85,50 @@ print.ridgereg <- function(object) {
   
   print(coefs)
 }
+
 #' @export
 predict.ridgereg <- function(object, newdata = NULL) {
+  cat("Using updated predict.ridgereg function\n")
+  
+  # Generate model matrix for new data without intercept
   predictor_formula <- reformulate(attr(terms(object$formula), "term.labels"))
+  X_new <- model.matrix(predictor_formula, newdata)[, -1]  # Exclude intercept
   
-  # Generate model matrix for new data
-  if (!is.null(newdata)) {
-    X_new <- model.matrix(predictor_formula, newdata)
-  } else {
-    X_new <- model.matrix(predictor_formula, object$data)
-  }
-  
-  # Retrieve saved scaling parameters
+  # Retrieve scaling parameters
   center <- object$scaling_params$center
   scale <- object$scaling_params$scale
   
-  # Apply scaling to new data based on training data parameters
-  X_new_norm <- scale(X_new, center = center, scale = scale)
+  # Diagnostic print for scaling parameters
+  cat("Predict - Center:\n")
+  print(center)
+  cat("Predict - Scale:\n")
+  print(scale)
   
-  # Add intercept column to ensure dimensions match
-  X_new_norm <- cbind(1, X_new_norm)
+  # Apply scaling to predictor columns only
+  X_new_scaled <- scale(X_new, center = center, scale = scale)
   
-  # Print dimensions for debugging
-  print(paste("Dimensions of X_new_norm:", dim(X_new_norm)))
+  # Add intercept column manually
+  X_new_scaled <- cbind(1, X_new_scaled)
+  
+  # Check dimensions for debugging
+  print(paste("Dimensions of X_new_scaled:", dim(X_new_scaled)))
   print(paste("Length of object$coefficients:", length(object$coefficients)))
   
-  # Return the predicted values
-  return(X_new_norm %*% object$coefficients)
+  # Calculate predictions
+  predicted <- X_new_scaled %*% object$coefficients
+  
+  # Warning for NaN values in predictions, if any
+  if (any(is.nan(predicted))) {
+    cat("Warning: NaN values detected in predictions\n")
+  }
+  
+  return(predicted)
 }
+
+
+
+
+
 
 
 #' @export
