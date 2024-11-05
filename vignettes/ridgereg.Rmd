@@ -22,13 +22,12 @@ library(dplyr)
 library(tidyr)
 library(elasticnet)
 
-# Load the BostonHousing dataset
 data("BostonHousing")
 ```
 
 ```{r divide data}
-# Step 1: Split the data into training and testing datasets
-set.seed(123) # For reproducibility
+#Split the data 
+set.seed(123)
 trainIndex <- createDataPartition(BostonHousing$medv, p = .8, 
                                   list = FALSE, 
                                   times = 1)
@@ -37,18 +36,15 @@ BostonHousingTest <- BostonHousing[-trainIndex, ]
 ```
 
 ```{r fit linreg model}
-# Step 2: Fit linear regression models
-# 2a: Standard linear regression
 lm_model <- lm(medv ~ ., data = BostonHousingTrain)
 
-# 2b: Forward selection of covariates
+#Forward selection of covariates
 stepwise_model <- step(lm(medv ~ 1, data = BostonHousingTrain), 
                         direction = "forward", 
                         scope = formula(lm_model))
 ```
 
 ```{r fit linreg}
-# Step 3: Evaluate the performance of the linear regression models on the training dataset
 train_predictions_lm <- predict(lm_model, newdata = BostonHousingTrain)
 train_predictions_stepwise <- predict(stepwise_model, newdata = BostonHousingTrain)
 
@@ -74,7 +70,9 @@ for (i in seq_along(lambda_values)) {
 }
 best_index <- which.min(rmse_ridge)         # Find the index of the minimum RMSE
 best_lambda <- lambda_values[best_index]
+best_rmse <- rmse_ridge[best_index] 
 cat("Best lambda:", best_lambda, "\n")
+cat("Corresponding RMSE:", best_rmse, "\n")
 ```
 
 ```{r create own 10 folds}
@@ -91,7 +89,7 @@ cat("Best lambda through cross validation:", best_lambda, "\n")
 
 
 ```{r best hyperparameter}
-# Find the best lambda value
+# Find the best lambda
 best_lambda_index <- which.min(rmse_ridge)
 best_lambda <- lambda_values[best_lambda_index]
 
@@ -99,7 +97,6 @@ cat("Best lambda value from ridge regression: ", best_lambda, "\n")
 ```
 
 ```{r evaluation}
-# Step 5: Evaluate the performance of all three models on the test dataset
 # Standard linear regression
 test_predictions_lm <- predict(lm_model, newdata = BostonHousingTest)
 rmse_test_lm <- sqrt(mean((test_predictions_lm - BostonHousingTest$medv)^2))
@@ -119,6 +116,6 @@ cat("Test RMSE of Ridge Regression: ", rmse_test_ridge, "\n")
 
 # Conclusion
 cat("Conclusions: \n")
-cat("The model with the lowest test RMSE is selected as the best model for prediction on the BostonHousing dataset. \n")
-cat("Considerations of model complexity and prediction accuracy will guide the choice of model in practice. \n")
+cat("The model with the lowest test RMSE (best performance on the test data) seems to be the standrard linreg model. The ridgereg model seems to perform extremely poorly in this case.\n")
+
 ```
