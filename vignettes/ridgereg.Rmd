@@ -20,6 +20,7 @@ library(caret)
 library(mlbench)
 library(dplyr)
 library(tidyr)
+library(elasticnet)
 
 # Load the BostonHousing dataset
 data("BostonHousing")
@@ -71,7 +72,23 @@ for (i in seq_along(lambda_values)) {
   # Calculate RMSE for the current lambda
   rmse_ridge[i] <- sqrt(mean((train_predictions_ridge - BostonHousingTrain$medv)^2))
 }
+best_index <- which.min(rmse_ridge)         # Find the index of the minimum RMSE
+best_lambda <- lambda_values[best_index]
+cat("Best lambda:", best_lambda, "\n")
 ```
+
+```{r create own 10 folds}
+set.seed(123)
+training_control <- trainControl(method = "cv", number = 10)
+ridge_cv_model <- train(medv ~ ., 
+                        data = BostonHousingTrain, 
+                        method = "ridge",
+                        tuneGrid = expand.grid(lambda = lambda_values),
+                        trControl = training_control)
+best_lambda <- ridge_cv_model$bestTune$lambda
+cat("Best lambda through cross validation:", best_lambda, "\n")
+```
+
 
 ```{r best hyperparameter}
 # Find the best lambda value

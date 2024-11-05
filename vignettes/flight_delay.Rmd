@@ -1,8 +1,8 @@
 ---
-title: "flight_delay"
+title: "ridgereg"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{flight_delay}
+  %\VignetteIndexEntry{ridgereg}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -16,86 +16,164 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(BonusLab)
-```
-
-```{r a}
-# Install necessary packages if they aren't installed
-if (!require("nycflights13")) install.packages("nycflights13")
-if (!require("caret")) install.packages("caret")
-
-# Load packages
-library(nycflights13)
 library(caret)
+library(mlbench)
+library(dplyr)
+library(tidyr)
 
-# Load the datasets
-data("flights")
-data("weather")
-
+# Load the BostonHousing dataset
+data("BostonHousing")
 ```
 
-```{r b}
-# Join flights and weather datasets on common columns
-merged_data <- merge(flights, weather, by = c("origin", "year", "month", "day", "hour"))
-
-# Remove columns with less predictive value
-merged_data <- merged_data[, !colnames(merged_data) %in% c("flight", "tailnum", "hour", "minute", "time_hour")]
-
+```{r divide data}
+# Step 1: Split the data into training and testing datasets
+set.seed(123) # For reproducibility
+trainIndex <- createDataPartition(BostonHousing$medv, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+BostonHousingTrain <- BostonHousing[trainIndex, ]
+BostonHousingTest <- BostonHousing[-trainIndex, ]
 ```
 
-```{r c}
-# Example: Adding interaction terms between temperature and wind speed
-merged_data$temp_wind_interaction <- merged_data$temp * merged_data$wind_speed
+```{r fit linreg model}
+# Step 2: Fit linear regression models
+# 2a: Standard linear regression
+lm_model <- lm(medv ~ ., data = BostonHousingTrain)
 
+# 2b: Forward selection of covariates
+stepwise_model <- step(lm(medv ~ 1, data = BostonHousingTrain), 
+                        direction = "forward", 
+                        scope = formula(lm_model))
 ```
 
-```{r d}
-merged_data <- merged_data[!is.na(merged_data$dep_delay), ]
+```{r fit linreg}
+# Step 3: Evaluate the performance of the linear regression models on the training dataset
+train_predictions_lm <- predict(lm_model, newdata = BostonHousingTrain)
+train_predictions_stepwise <- predict(stepwise_model, newdata = BostonHousingTrain)
 
-set.seed(123)  # For reproducibility
-trainIndex <- createDataPartition(merged_data$dep_delay, p = 0.8, list = FALSE)
-train_data <- merged_data[trainIndex, ]
-temp_data <- merged_data[-trainIndex, ]
+# Calculate RMSE for both models
+rmse_lm <- sqrt(mean((train_predictions_lm - BostonHousingTrain$medv)^2))
+rmse_stepwise <- sqrt(mean((train_predictions_stepwise - BostonHousingTrain$medv)^2))
 
-validationIndex <- createDataPartition(temp_data$dep_delay, p = 0.75, list = FALSE)
-validation_data <- temp_data[validationIndex, ]
-test_data <- temp_data[-validationIndex, ]
-train_data <- na.omit(train_data)
+cat("RMSE of Standard Linear Regression: ", rmse_lm, "\n")
+cat("RMSE of Stepwise Linear Regression: ", rmse_stepwise, "\n")
 ```
 
-```{r e}
-# # Load your ridgereg() function here
-# 
-# # Define a range of lambda values to test
-# lambda_values <- seq(0, 10, by = 0.5)
-# rmse_values <- numeric(length(lambda_values))
-# 
-# for (i in seq_along(lambda_values)) {
-#   lambda <- lambda_values[i]
-#   model <- ridgereg(dep_delay ~ ., data = train_data, lambda = lambda)
-#   
-#   # Get predictions on the validation set
-#   predictions <- predict(model, newdata = validation_data)
-#   
-#   # Calculate RMSE
-#   rmse_values[i] <- sqrt(mean((validation_data$dep_delay - predictions)^2))
-# }
-# 
-# # Find the optimal lambda with the minimum RMSE
-# optimal_lambda <- lambda_values[which.min(rmse_values)]
-# cat("Optimal lambda:", optimal_lambda, "\n")
 
+```{r fit ridgereg}
+lambda_values <- seq(0, 1, length = 10)
+rmse_ridge <- numeric(length(lambda_values))
+
+for (i in seq_along(lambda_values)) {
+  ridge_model <- ridgereg(medv ~ ., data = BostonHousingTrain, lambda = lambda_values[i])
+  train_predictions_ridge <- predict(ridge_model, newdata = BostonHousingTrain)
+
+  # Calculate RMSE for the current lambda
+  rmse_ridge[i] <- sqrt(mean((train_predictions_ridge - BostonHousingTrain$medv)^2))
+}
 ```
 
-```{r f}
-# # Train final model with optimal lambda
-# final_model <- ridgereg(dep_delay ~ ., data = train_data, lambda = optimal_lambda)
-# 
-# # Predict on the test set
-# test_predictions <- predict(final_model, newdata = test_data)
-# 
-# # Calculate RMSE on test set
-# test_rmse <- sqrt(mean((test_data$dep_delay - test_predictions)^2))
-# cat("Test RMSE:", test_rmse, "\n")
+```{r define ridge model for caret}
+# Step 2: Define a custom model in caret to use `ridgereg`
+# Step 2: Define a custom model in caret to use `ridgereg`
+ridge_model_custom <- list(
+  type = "Regression",
+  library = "BonusLab",  # Ensure this matches your package name
+  loop = NULL,
+  
+  # Define the model-fitting function
+  fit = function(x, y, wts, param, lev, last, classProbs, ...) {
+    # Create a formula for the response variable `y`
+    formula <- as.formula(paste("y ~", paste(names(x), collapse = " + ")))
+    
+    # Combine predictors and response to a single data frame for ridgereg
+    data <- cbind(y = y, x)
+    
+    # Call the ridgereg function with the specified lambda
+    ridgereg(formula, data = data, lambda = param$lambda)
+  },
+  
+  # Define the prediction function
+  predict = function(modelFit, newdata, submodels = NULL) {
+    predict.ridgereg(modelFit, newdata = newdata)  # Correctly call predict for the ridgereg model
+  },
+  
+  # Define the grid function to return the tuning grid
+  grid = function(x, y, len = NULL, search = "grid") {
+    return(expand.grid(lambda = seq(0.1, 10, length = len)))  # Generate the grid based on len
+  },
+  
+  # Define model parameters for caret to tune
+  parameters = data.frame(parameter = "lambda", class = "numeric", label = "Ridge Penalty"),
+  
+  # Specify the type of prediction (numeric in this case)
+  prob = NULL
+)
+```
 
+
+```{r 10-fold }
+# Step 3: Set up cross-validation
+train_control <- trainControl(method = "cv", number = 10)
+
+# Step 4: Define the tuning grid for lambda
+lambda_grid <- expand.grid(lambda = seq(0.1, 10, length = 20))
+
+# Step 5: Use caret's train function to find the best lambda
+set.seed(123)
+ridge_cv_model <- train(
+  x = BostonHousingTrain[, -which(names(BostonHousingTrain) == "medv")],  # Exclude response variable
+  y = BostonHousingTrain$medv,  # Specify the response variable
+  method = ridge_model_custom,  # Use your custom ridge model
+  trControl = train_control,  # Cross-validation settings
+  tuneGrid = lambda_grid  # Grid of lambda values to tune
+)
+
+# Print the results to see the best lambda
+print(ridge_cv_model)
+print(ridge_cv_model$bestTune)
+
+# Step 6: Evaluate the performance of the best model on the test dataset
+best_lambda <- ridge_cv_model$bestTune$lambda
+best_ridge_model <- ridgereg(medv ~ ., data = BostonHousingTrain, lambda = best_lambda)
+predictions <- predict(best_ridge_model, newdata = BostonHousingTest)
+
+# Calculate and print the test RMSE
+test_rmse <- sqrt(mean((BostonHousingTest$medv - predictions)^2))
+cat("Test RMSE for the best lambda:", test_rmse, "\n")
+```
+
+
+```{r best hyperparameter}
+# Find the best lambda value
+best_lambda_index <- which.min(rmse_ridge)
+best_lambda <- lambda_values[best_lambda_index]
+
+cat("Best lambda value from ridge regression: ", best_lambda, "\n")
+```
+
+```{r evaluation}
+# Step 5: Evaluate the performance of all three models on the test dataset
+# Standard linear regression
+test_predictions_lm <- predict(lm_model, newdata = BostonHousingTest)
+rmse_test_lm <- sqrt(mean((test_predictions_lm - BostonHousingTest$medv)^2))
+
+# Stepwise linear regression
+test_predictions_stepwise <- predict(stepwise_model, newdata = BostonHousingTest)
+rmse_test_stepwise <- sqrt(mean((test_predictions_stepwise - BostonHousingTest$medv)^2))
+
+# Ridge regression with the best lambda
+ridge_model_best <- ridgereg(medv ~ ., data = BostonHousingTrain, lambda = best_lambda)
+test_predictions_ridge <- predict(ridge_model_best, newdata = BostonHousingTest)
+rmse_test_ridge <- sqrt(mean((test_predictions_ridge - BostonHousingTest$medv)^2))
+
+cat("Test RMSE of Standard Linear Regression: ", rmse_test_lm, "\n")
+cat("Test RMSE of Stepwise Linear Regression: ", rmse_test_stepwise, "\n")
+cat("Test RMSE of Ridge Regression: ", rmse_test_ridge, "\n")
+
+# Conclusion
+cat("Conclusions: \n")
+cat("The model with the lowest test RMSE is selected as the best model for prediction on the BostonHousing dataset. \n")
+cat("Considerations of model complexity and prediction accuracy will guide the choice of model in practice. \n")
 ```
 
