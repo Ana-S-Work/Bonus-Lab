@@ -5,6 +5,7 @@ vignette: >
   %\VignetteIndexEntry{ridgereg}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+depends: caret, elasticnet, mlbench, tidyr  
 ---
 
 ```{r, include = FALSE}
@@ -65,10 +66,9 @@ for (i in seq_along(lambda_values)) {
   ridge_model <- ridgereg(medv ~ ., data = BostonHousingTrain, lambda = lambda_values[i])
   train_predictions_ridge <- predict(ridge_model, newdata = BostonHousingTrain)
 
-  # Calculate RMSE for the current lambda
   rmse_ridge[i] <- sqrt(mean((train_predictions_ridge - BostonHousingTrain$medv)^2))
 }
-best_index <- which.min(rmse_ridge)         # Find the index of the minimum RMSE
+best_index <- which.min(rmse_ridge)       
 best_lambda <- lambda_values[best_index]
 best_rmse <- rmse_ridge[best_index] 
 cat("Best lambda:", best_lambda, "\n")
