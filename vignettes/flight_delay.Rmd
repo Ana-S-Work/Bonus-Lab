@@ -1,0 +1,101 @@
+---
+title: "flight_delay"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{flight_delay}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(BonusLab)
+```
+
+```{r a}
+# Install necessary packages if they aren't installed
+if (!require("nycflights13")) install.packages("nycflights13")
+if (!require("caret")) install.packages("caret")
+
+# Load packages
+library(nycflights13)
+library(caret)
+
+# Load the datasets
+data("flights")
+data("weather")
+
+```
+
+```{r b}
+# Join flights and weather datasets on common columns
+merged_data <- merge(flights, weather, by = c("origin", "year", "month", "day", "hour"))
+
+# Remove columns with less predictive value
+merged_data <- merged_data[, !colnames(merged_data) %in% c("flight", "tailnum", "hour", "minute", "time_hour")]
+
+```
+
+```{r c}
+# Example: Adding interaction terms between temperature and wind speed
+merged_data$temp_wind_interaction <- merged_data$temp * merged_data$wind_speed
+
+```
+
+```{r d}
+merged_data <- merged_data[!is.na(merged_data$dep_delay), ]
+
+set.seed(123)  # For reproducibility
+trainIndex <- createDataPartition(merged_data$dep_delay, p = 0.8, list = FALSE)
+train_data <- merged_data[trainIndex, ]
+temp_data <- merged_data[-trainIndex, ]
+
+validationIndex <- createDataPartition(temp_data$dep_delay, p = 0.75, list = FALSE)
+validation_data <- temp_data[validationIndex, ]
+test_data <- temp_data[-validationIndex, ]
+train_data <- na.omit(train_data)
+```
+
+```{r e}
+# # Load your ridgereg() function here
+# 
+# # Define a range of lambda values to test
+# lambda_values <- seq(0, 10, by = 0.5)
+# rmse_values <- numeric(length(lambda_values))
+# 
+# for (i in seq_along(lambda_values)) {
+#   lambda <- lambda_values[i]
+#   model <- ridgereg(dep_delay ~ ., data = train_data, lambda = lambda)
+#   
+#   # Get predictions on the validation set
+#   predictions <- predict(model, newdata = validation_data)
+#   
+#   # Calculate RMSE
+#   rmse_values[i] <- sqrt(mean((validation_data$dep_delay - predictions)^2))
+# }
+# 
+# # Find the optimal lambda with the minimum RMSE
+# optimal_lambda <- lambda_values[which.min(rmse_values)]
+# cat("Optimal lambda:", optimal_lambda, "\n")
+
+```
+
+```{r f}
+# # Train final model with optimal lambda
+# final_model <- ridgereg(dep_delay ~ ., data = train_data, lambda = optimal_lambda)
+# 
+# # Predict on the test set
+# test_predictions <- predict(final_model, newdata = test_data)
+# 
+# # Calculate RMSE on test set
+# test_rmse <- sqrt(mean((test_data$dep_delay - test_predictions)^2))
+# cat("Test RMSE:", test_rmse, "\n")
+
+```
+
