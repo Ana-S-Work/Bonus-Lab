@@ -1,0 +1,107 @@
+---
+title: "ridgereg"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ridgereg}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(BonusLab)
+library(caret)
+library(mlbench)
+library(dplyr)
+library(tidyr)
+
+# Load the BostonHousing dataset
+data("BostonHousing")
+```
+
+```{r divide data}
+# Step 1: Split the data into training and testing datasets
+set.seed(123) # For reproducibility
+trainIndex <- createDataPartition(BostonHousing$medv, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+BostonHousingTrain <- BostonHousing[trainIndex, ]
+BostonHousingTest <- BostonHousing[-trainIndex, ]
+```
+
+```{r fit linreg model}
+# Step 2: Fit linear regression models
+# 2a: Standard linear regression
+lm_model <- lm(medv ~ ., data = BostonHousingTrain)
+
+# 2b: Forward selection of covariates
+stepwise_model <- step(lm(medv ~ 1, data = BostonHousingTrain), 
+                        direction = "forward", 
+                        scope = formula(lm_model))
+```
+
+```{r fit linreg}
+# Step 3: Evaluate the performance of the linear regression models on the training dataset
+train_predictions_lm <- predict(lm_model, newdata = BostonHousingTrain)
+train_predictions_stepwise <- predict(stepwise_model, newdata = BostonHousingTrain)
+
+# Calculate RMSE for both models
+rmse_lm <- sqrt(mean((train_predictions_lm - BostonHousingTrain$medv)^2))
+rmse_stepwise <- sqrt(mean((train_predictions_stepwise - BostonHousingTrain$medv)^2))
+
+cat("RMSE of Standard Linear Regression: ", rmse_lm, "\n")
+cat("RMSE of Stepwise Linear Regression: ", rmse_stepwise, "\n")
+```
+
+
+```{r fit ridgereg}
+lambda_values <- seq(0, 1, length = 10)
+rmse_ridge <- numeric(length(lambda_values))
+
+for (i in seq_along(lambda_values)) {
+  ridge_model <- ridgereg(medv ~ ., data = BostonHousingTrain, lambda = lambda_values[i])
+  train_predictions_ridge <- predict(ridge_model, newdata = BostonHousingTrain)
+
+  # Calculate RMSE for the current lambda
+  rmse_ridge[i] <- sqrt(mean((train_predictions_ridge - BostonHousingTrain$medv)^2))
+}
+```
+
+```{r best hyperparameter}
+# Find the best lambda value
+best_lambda_index <- which.min(rmse_ridge)
+best_lambda <- lambda_values[best_lambda_index]
+
+cat("Best lambda value from ridge regression: ", best_lambda, "\n")
+```
+
+```{r evaluation}
+# Step 5: Evaluate the performance of all three models on the test dataset
+# Standard linear regression
+test_predictions_lm <- predict(lm_model, newdata = BostonHousingTest)
+rmse_test_lm <- sqrt(mean((test_predictions_lm - BostonHousingTest$medv)^2))
+
+# Stepwise linear regression
+test_predictions_stepwise <- predict(stepwise_model, newdata = BostonHousingTest)
+rmse_test_stepwise <- sqrt(mean((test_predictions_stepwise - BostonHousingTest$medv)^2))
+
+# Ridge regression with the best lambda
+ridge_model_best <- ridgereg(medv ~ ., data = BostonHousingTrain, lambda = best_lambda)
+test_predictions_ridge <- predict(ridge_model_best, newdata = BostonHousingTest)
+rmse_test_ridge <- sqrt(mean((test_predictions_ridge - BostonHousingTest$medv)^2))
+
+cat("Test RMSE of Standard Linear Regression: ", rmse_test_lm, "\n")
+cat("Test RMSE of Stepwise Linear Regression: ", rmse_test_stepwise, "\n")
+cat("Test RMSE of Ridge Regression: ", rmse_test_ridge, "\n")
+
+# Conclusion
+cat("Conclusions: \n")
+cat("The model with the lowest test RMSE is selected as the best model for prediction on the BostonHousing dataset. \n")
+cat("Considerations of model complexity and prediction accuracy will guide the choice of model in practice. \n")
+```
